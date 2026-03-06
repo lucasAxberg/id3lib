@@ -220,6 +220,10 @@ impl FrameHeader {
 enum FrameType {
     Text(Vec<u8>),
     URL(Vec<u8>),
+    Comment(Vec<u8>),
+    People(Vec<u8>),
+    Image(Vec<u8>),
+    Other(Vec<u8>),
 }
 
 impl FrameType {
@@ -228,7 +232,8 @@ impl FrameType {
             Self::URL(data) |
             Self::Text(data) => {
                 data
-            } 
+            },
+            _ => todo!()
         }
     }
 }
@@ -456,6 +461,34 @@ mod tests {
     fn url_frame_internal_data() {
         let bytes = vec![1, 2, 3, 4];
         let frame = FrameType::URL(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn people_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::People(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn image_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::Image(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn comment_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::Comment(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn other_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::Other(bytes.clone());
         assert_eq!(&bytes, frame.internal_data())
     }
 }
