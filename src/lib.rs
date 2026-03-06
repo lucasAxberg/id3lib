@@ -217,6 +217,22 @@ impl FrameHeader {
     }
 }
 
+enum FrameType {
+    TextFrame(Vec<u8>),
+    UrlFrame(Vec<u8>),
+}
+
+impl FrameType {
+    fn internal_data(&self) -> &Vec<u8> {
+        match self {
+            Self::UrlFrame(data) |
+            Self::TextFrame(data) => {
+                data
+            } 
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -427,5 +443,19 @@ mod tests {
         let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0x00, 0x00];
         let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
         assert_eq!(head.id(), "TIT2".to_string())
+    }
+
+    #[test]
+    fn text_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::TextFrame(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn url_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::UrlFrame(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
     }
 }
