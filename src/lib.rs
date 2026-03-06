@@ -218,15 +218,15 @@ impl FrameHeader {
 }
 
 enum FrameType {
-    TextFrame(Vec<u8>),
-    UrlFrame(Vec<u8>),
+    Text(Vec<u8>),
+    URL(Vec<u8>),
 }
 
 impl FrameType {
     fn internal_data(&self) -> &Vec<u8> {
         match self {
-            Self::UrlFrame(data) |
-            Self::TextFrame(data) => {
+            Self::URL(data) |
+            Self::Text(data) => {
                 data
             } 
         }
@@ -448,14 +448,14 @@ mod tests {
     #[test]
     fn text_frame_internal_data() {
         let bytes = vec![1, 2, 3, 4];
-        let frame = FrameType::TextFrame(bytes.clone());
+        let frame = FrameType::Text(bytes.clone());
         assert_eq!(&bytes, frame.internal_data())
     }
 
     #[test]
     fn url_frame_internal_data() {
         let bytes = vec![1, 2, 3, 4];
-        let frame = FrameType::UrlFrame(bytes.clone());
+        let frame = FrameType::URL(bytes.clone());
         assert_eq!(&bytes, frame.internal_data())
     }
 }
