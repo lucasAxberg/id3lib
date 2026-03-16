@@ -1,6 +1,22 @@
 use std::fmt;
 use std::io::Read;
 
+enum StringParseError {
+    InvalidByte(u8, usize),
+    InvalidWord(u16, usize),
+    MissingBOM,
+
+}
+
+fn bytes_to_ascii_string(bytes: &[u8]) -> Result<String, StringParseError> {
+    todo!();
+}
+
+fn bytes_to_utf16_string(bytes: &[u8]) -> Result<String, StringParseError> {
+    todo!();
+}
+
+
 #[derive(Clone, Debug)]
 /// Errors for the sync-safe integer data type
 enum SyncSafeError {
@@ -493,5 +509,68 @@ mod tests {
         let bytes = vec![1, 2, 3, 4];
         let frame = FrameType::Other(bytes.clone());
         assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn string_from_valid_ascii_bytes() {
+        let bytes = vec![0x43, 0x61, 0x73, 0x74, 0x6C, 0x65, 0x20, 0x52, 0x61, 0x74, 0x00];
+        let string = "Castle Rat".to_string();
+        let result = bytes_to_ascii_string(&bytes).ok().unwrap();
+        assert_eq!(result, string);
+    }
+
+    #[test]
+    fn string_from_valid_ascii_bytes_without_termination() {
+        let bytes = vec![0x43, 0x61, 0x73, 0x74, 0x6C, 0x65, 0x20, 0x52, 0x61, 0x74];
+        let string = "Castle Rat".to_string();
+        let result = bytes_to_ascii_string(&bytes).ok().unwrap();
+        assert_eq!(result, string);
+    }
+
+    #[test]
+    fn string_from_invalid_ascii_bytes_returns_error() {
+        let bytes = vec![0x43, 0x61, 0x73, 0x74, 0x6C, 0x65, 0x20, 0x52, 0x61, 0x74, 0x00];
+        let string = "Castle Rat".to_string();
+        let result = bytes_to_ascii_string(&bytes);
+        match result {
+            Err(StringParseError::InvalidByte(_, _)) => assert!(true),
+            _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn string_from_valid_utf16_bytes() {
+        let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x72, 0x00, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00];
+        let string = "Marred".to_string();
+        let result = bytes_to_utf16_string(&bytes).ok().unwrap();
+        assert_eq!(result, string)
+    }
+
+    #[test]
+    fn string_from_valid_utf16_bytes_without_termination() {
+        let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x72, 0x00, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00];
+        let string = "Marred".to_string();
+        let result = bytes_to_utf16_string(&bytes).ok().unwrap();
+        assert_eq!(result, string)
+    }
+
+    #[test]
+    fn string_from_invalid_utf16_bytes() {
+        let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x00, 0xD8, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00];
+        let result = bytes_to_utf16_string(&bytes);
+        match result {
+            Err(StringParseError::InvalidWord(_, _)) => assert!(true),
+            _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn string_from_utf16_bytes_without_bom_returns_error() {
+        let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x72, 0x00, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00];
+        let result = bytes_to_utf16_string(&bytes);
+        match result {
+            Err(StringParseError::MissingBOM) => assert!(true),
+            _ => assert!(false)
+        }
     }
 }
