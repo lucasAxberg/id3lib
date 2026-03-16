@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "mp3-tool"
+name = "id3lib"
 version = "0.1.0"
