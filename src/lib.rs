@@ -29,7 +29,41 @@ fn bytes_to_ascii_string(bytes: &[u8]) -> Result<String, StringParseError> {
 }
 
 fn bytes_to_utf16_string(bytes: &[u8]) -> Result<String, StringParseError> {
-    todo!();
+    let byte_length: usize = bytes.len();
+
+    // Return error if length is not even
+    if byte_length % 2 != 0 {
+        return Err(StringParseError::InvalidLength(byte_length))
+    }
+
+    // Find endianess, or return error if BOM is missing
+    let big_endian: bool = match bytes[0..2] {
+        [0xFE, 0xFF] => true,
+        [0xFF, 0xFE] => false,
+        _ => return Err(StringParseError::MissingBOM)
+    };
+
+    // Create a vec of u16 from the bytes depending on endianess
+    let u16_words: Vec<u16> = match big_endian {
+        true => (1..byte_length/2).map(|index| u16::from_be_bytes([bytes[index*2], bytes[index*2 + 1]])).collect(),
+        false => (1..byte_length/2).map(|index| u16::from_le_bytes([bytes[index*2], bytes[index*2 + 1]])).collect()
+    };
+
+    let mut string = String::new();
+    for (index, &word) in u16_words.iter().enumerate() {
+        // Ignore last word if null
+        if index == u16_words.len() - 1 && word == 0x0000u16 {
+            return Ok(string)
+        }
+        
+        // Convert word to utf16 string and add to string, return custom error
+        match String::from_utf16(&[word]) {
+            Ok(value) => string.push_str(&value),
+            Err(_) => return Err(StringParseError::InvalidWord(word, index*2 + 2))
+        };
+    }
+
+    Ok(string)
 }
 
 
@@ -592,7 +626,7 @@ mod tests {
 
     #[test]
     fn string_from_utf16_bytes_without_bom_returns_error() {
-        let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x72, 0x00, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00];
+        let bytes = vec![0x4D, 0x00, 0x61, 0x00, 0x72, 0x00, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00];
         let result = bytes_to_utf16_string(&bytes);
         match result {
             Err(StringParseError::MissingBOM) => assert!(true),
