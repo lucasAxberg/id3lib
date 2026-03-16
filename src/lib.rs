@@ -9,7 +9,22 @@ enum StringParseError {
 }
 
 fn bytes_to_ascii_string(bytes: &[u8]) -> Result<String, StringParseError> {
-    todo!();
+    let mut string = String::new();
+    for (index, &value) in bytes.iter().enumerate() {
+        // Ignore last byte if 0x00
+        if value == 0x00 && index == bytes.len() - 1{
+            return Ok(string)
+        }
+
+        // Throw error on invalid bytes
+        if value < 0x20 {
+            return Err(StringParseError::InvalidByte(value, index))
+        }
+
+        string.push(value as char);
+    }
+
+    Ok(string)
 }
 
 fn bytes_to_utf16_string(bytes: &[u8]) -> Result<String, StringParseError> {
@@ -529,7 +544,7 @@ mod tests {
 
     #[test]
     fn string_from_invalid_ascii_bytes_returns_error() {
-        let bytes = vec![0x43, 0x61, 0x73, 0x74, 0x6C, 0x65, 0x20, 0x52, 0x61, 0x74, 0x00];
+        let bytes = vec![0x43, 0x61, 0x73, 0x74, 0x6C, 0x65, 0x20, 0x03, 0x61, 0x74, 0x00];
         let string = "Castle Rat".to_string();
         let result = bytes_to_ascii_string(&bytes);
         match result {
