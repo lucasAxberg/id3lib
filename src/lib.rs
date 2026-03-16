@@ -4,6 +4,7 @@ use std::io::Read;
 enum StringParseError {
     InvalidByte(u8, usize),
     InvalidWord(u16, usize),
+    InvalidLength(usize),
     MissingBOM,
 
 }
@@ -570,11 +571,21 @@ mod tests {
     }
 
     #[test]
-    fn string_from_invalid_utf16_bytes() {
+    fn string_from_invalid_utf16_bytes_returns_error() {
         let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x00, 0xD8, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00];
         let result = bytes_to_utf16_string(&bytes);
         match result {
             Err(StringParseError::InvalidWord(_, _)) => assert!(true),
+            _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn string_from_invalid_utf16_byte_length_returns_error() {
+        let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x00, 0xD8, 0x72, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00];
+        let result = bytes_to_utf16_string(&bytes);
+        match result {
+            Err(StringParseError::InvalidLength(_)) => assert!(true),
             _ => assert!(false)
         }
     }
