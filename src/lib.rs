@@ -1,6 +1,72 @@
 use std::fmt;
 use std::io::Read;
 
+enum StringParseError {
+    InvalidByte(u8, usize),
+    InvalidWord(u16, usize),
+    InvalidLength(usize),
+    MissingBOM,
+
+}
+
+fn bytes_to_ascii_string(bytes: &[u8]) -> Result<String, StringParseError> {
+    let mut string = String::new();
+    for (index, &value) in bytes.iter().enumerate() {
+        // Ignore last byte if 0x00
+        if value == 0x00 && index == bytes.len() - 1{
+            return Ok(string)
+        }
+
+        // Throw error on invalid bytes
+        if value < 0x20 {
+            return Err(StringParseError::InvalidByte(value, index))
+        }
+
+        string.push(value as char);
+    }
+
+    Ok(string)
+}
+
+fn bytes_to_utf16_string(bytes: &[u8]) -> Result<String, StringParseError> {
+    let byte_length: usize = bytes.len();
+
+    // Return error if length is not even
+    if byte_length % 2 != 0 {
+        return Err(StringParseError::InvalidLength(byte_length))
+    }
+
+    // Find endianess, or return error if BOM is missing
+    let big_endian: bool = match bytes[0..2] {
+        [0xFE, 0xFF] => true,
+        [0xFF, 0xFE] => false,
+        _ => return Err(StringParseError::MissingBOM)
+    };
+
+    // Create a vec of u16 from the bytes depending on endianess
+    let u16_words: Vec<u16> = match big_endian {
+        true => (1..byte_length/2).map(|index| u16::from_be_bytes([bytes[index*2], bytes[index*2 + 1]])).collect(),
+        false => (1..byte_length/2).map(|index| u16::from_le_bytes([bytes[index*2], bytes[index*2 + 1]])).collect()
+    };
+
+    let mut string = String::new();
+    for (index, &word) in u16_words.iter().enumerate() {
+        // Ignore last word if null
+        if index == u16_words.len() - 1 && word == 0x0000u16 {
+            return Ok(string)
+        }
+        
+        // Convert word to utf16 string and add to string, return custom error
+        match String::from_utf16(&[word]) {
+            Ok(value) => string.push_str(&value),
+            Err(_) => return Err(StringParseError::InvalidWord(word, index*2 + 2))
+        };
+    }
+
+    Ok(string)
+}
+
+
 #[derive(Clone, Debug)]
 /// Errors for the sync-safe integer data type
 enum SyncSafeError {
@@ -190,6 +256,57 @@ impl ExtendedHeader {
     }
 }
 
+struct FrameHeader {
+    frame_id: [u8; 4],
+    size: [u8; 4],
+    flags: [u8; 2]
+}
+
+impl FrameHeader {
+    fn read_from(reader: &mut impl Read) -> Result<Self, ID3Error> {
+        let mut bytes: [u8; 10] = [0; 10];
+        reader.read_exact(&mut bytes).map_err(|_| ID3Error::NotEnoughBytes)?;
+
+        Ok(Self{
+            frame_id: [bytes[0], bytes[1], bytes[2], bytes[3]],
+            size: [bytes[4], bytes[5], bytes[6], bytes[7]],
+            flags: [bytes[8], bytes[9]]
+        })
+    }
+
+    fn size(&self) -> u32 {
+        u32::from_be_bytes(self.size)
+    }
+
+    fn id(&self) -> String {
+        String::from_utf8(self.frame_id.to_vec()).unwrap()
+    }
+}
+
+enum FrameType {
+    Text(Vec<u8>),
+    URL(Vec<u8>),
+    Comment(Vec<u8>),
+    People(Vec<u8>),
+    Image(Vec<u8>),
+    Other(Vec<u8>),
+}
+
+impl FrameType {
+    fn internal_data(&self) -> &Vec<u8> {
+        match self {
+            Self::URL(data)
+            | Self::Other(data)
+            | Self::Image(data)
+            | Self::Comment(data)
+            | Self::People(data)
+            | Self::Text(data) => {
+                data
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -364,5 +481,156 @@ mod tests {
         let bytes: [u8; 10] = [0, 0, 0, 6, 0, 0, 0x01, 0x02, 0x03, 0x04];
         let ext = ExtendedHeader::read_from(&mut bytes.as_slice()).unwrap();
         assert_eq!((ext.size(), ext.padding_size(), ext.crc()), (6, 16909060, None));
+    }
+
+    #[test]
+    fn frame_header_from_valid_bytes() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0x00, 0x00];
+        FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+    }
+
+    #[test]
+    fn frame_header_from_too_many_bytes() {
+        let bytes: [u8; 11] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0x00, 0x00, 0x00];
+        FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+    }
+
+    #[test]
+    fn frame_header_error_from_not_enough_bytes() {
+        let bytes: [u8; 9] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0x00];
+        let frame_header = FrameHeader::read_from(&mut bytes.as_slice());
+        match frame_header {
+            Err(ID3Error::NotEnoughBytes) => assert!(true),
+            _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn frame_header_size() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0x00, 0x00];
+        let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        assert_eq!(head.size(), 37)
+    }
+
+    #[test]
+    fn frame_header_id() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0x00, 0x00];
+        let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        assert_eq!(head.id(), "TIT2".to_string())
+    }
+
+    #[test]
+    fn text_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::Text(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn url_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::URL(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn people_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::People(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn image_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::Image(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn comment_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::Comment(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn other_frame_internal_data() {
+        let bytes = vec![1, 2, 3, 4];
+        let frame = FrameType::Other(bytes.clone());
+        assert_eq!(&bytes, frame.internal_data())
+    }
+
+    #[test]
+    fn string_from_valid_ascii_bytes() {
+        let bytes = vec![0x43, 0x61, 0x73, 0x74, 0x6C, 0x65, 0x20, 0x52, 0x61, 0x74, 0x00];
+        let string = "Castle Rat".to_string();
+        let result = bytes_to_ascii_string(&bytes).ok().unwrap();
+        assert_eq!(result, string);
+    }
+
+    #[test]
+    fn string_from_valid_ascii_bytes_without_termination() {
+        let bytes = vec![0x43, 0x61, 0x73, 0x74, 0x6C, 0x65, 0x20, 0x52, 0x61, 0x74];
+        let string = "Castle Rat".to_string();
+        let result = bytes_to_ascii_string(&bytes).ok().unwrap();
+        assert_eq!(result, string);
+    }
+
+    #[test]
+    fn string_from_invalid_ascii_bytes_returns_error() {
+        let bytes = vec![0x43, 0x61, 0x73, 0x74, 0x6C, 0x65, 0x20, 0x03, 0x61, 0x74, 0x00];
+        let string = "Castle Rat".to_string();
+        let result = bytes_to_ascii_string(&bytes);
+        match result {
+            Err(StringParseError::InvalidByte(_, _)) => assert!(true),
+            _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn string_from_valid_utf16_bytes() {
+        let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x72, 0x00, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00];
+        let string = "Marred".to_string();
+        let result = bytes_to_utf16_string(&bytes).ok().unwrap();
+        assert_eq!(result, string)
+    }
+
+    #[test]
+    fn string_from_valid_utf16_bytes_without_termination() {
+        let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x72, 0x00, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00];
+        let string = "Marred".to_string();
+        let result = bytes_to_utf16_string(&bytes).ok().unwrap();
+        assert_eq!(result, string)
+    }
+
+    #[test]
+    fn string_from_invalid_utf16_bytes_returns_error() {
+        let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x00, 0xD8, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00];
+        let result = bytes_to_utf16_string(&bytes);
+        match result {
+            Err(StringParseError::InvalidWord(_, _)) => assert!(true),
+            _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn string_from_invalid_utf16_byte_length_returns_error() {
+        let bytes = vec![0xFF, 0xFE, 0x4D, 0x00, 0x61, 0x00, 0x00, 0xD8, 0x72, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00];
+        let result = bytes_to_utf16_string(&bytes);
+        match result {
+            Err(StringParseError::InvalidLength(_)) => assert!(true),
+            _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn string_from_utf16_bytes_without_bom_returns_error() {
+        let bytes = vec![0x4D, 0x00, 0x61, 0x00, 0x72, 0x00, 0x72, 0x00, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00];
+        let result = bytes_to_utf16_string(&bytes);
+        match result {
+            Err(StringParseError::MissingBOM) => assert!(true),
+            _ => assert!(false)
+        }
     }
 }
