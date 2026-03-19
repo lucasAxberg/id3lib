@@ -283,7 +283,7 @@ impl FrameHeader {
     }
 }
 
-enum FrameType {
+enum FrameData {
     Text(Vec<u8>),
     URL(Vec<u8>),
     Comment(Vec<u8>),
@@ -292,7 +292,7 @@ enum FrameType {
     Other(Vec<u8>),
 }
 
-impl FrameType {
+impl FrameData {
     fn internal_data(&self) -> &Vec<u8> {
         match self {
             Self::URL(data)
@@ -304,6 +304,35 @@ impl FrameType {
                 data
             }
         }
+    }
+}
+
+struct Frame {
+    header: FrameHeader,
+    data: FrameData
+}
+
+impl Frame {
+    fn read_from(reader: &mut impl Read) -> Result<Self, ID3Error>{
+        let header = FrameHeader::read_from(reader)?;
+        let size = header.size();
+
+        // Read the amount of bytes specified in the header
+        let mut buffer: Vec<u8> = Vec::new();
+        reader.take(size as u64).read_to_end(&mut buffer).map_err(|_| ID3Error::NotEnoughBytes)?;
+
+        // Match the frame ID to the FrameData it should be stored in
+        let data = match header.id().chars().collect::<Vec<char>>()[0..4] {
+            ['T', _, _, _] => FrameData::Text(buffer),
+            ['W', _, _, _] => FrameData::URL(buffer),
+            ['A', 'P', 'I', 'C'] => FrameData::Image(buffer),
+            ['I', 'P', 'L', 'S'] => FrameData::People(buffer),
+            ['C', 'O', 'M', 'M'] => FrameData::Comment(buffer),
+            _ => FrameData::Other(buffer)
+        };
+
+        // Return the frame
+        Ok(Frame { header, data })
     }
 }
 
@@ -522,42 +551,42 @@ mod tests {
     #[test]
     fn text_frame_internal_data() {
         let bytes = vec![1, 2, 3, 4];
-        let frame = FrameType::Text(bytes.clone());
+        let frame = FrameData::Text(bytes.clone());
         assert_eq!(&bytes, frame.internal_data())
     }
 
     #[test]
     fn url_frame_internal_data() {
         let bytes = vec![1, 2, 3, 4];
-        let frame = FrameType::URL(bytes.clone());
+        let frame = FrameData::URL(bytes.clone());
         assert_eq!(&bytes, frame.internal_data())
     }
 
     #[test]
     fn people_frame_internal_data() {
         let bytes = vec![1, 2, 3, 4];
-        let frame = FrameType::People(bytes.clone());
+        let frame = FrameData::People(bytes.clone());
         assert_eq!(&bytes, frame.internal_data())
     }
 
     #[test]
     fn image_frame_internal_data() {
         let bytes = vec![1, 2, 3, 4];
-        let frame = FrameType::Image(bytes.clone());
+        let frame = FrameData::Image(bytes.clone());
         assert_eq!(&bytes, frame.internal_data())
     }
 
     #[test]
     fn comment_frame_internal_data() {
         let bytes = vec![1, 2, 3, 4];
-        let frame = FrameType::Comment(bytes.clone());
+        let frame = FrameData::Comment(bytes.clone());
         assert_eq!(&bytes, frame.internal_data())
     }
 
     #[test]
     fn other_frame_internal_data() {
         let bytes = vec![1, 2, 3, 4];
-        let frame = FrameType::Other(bytes.clone());
+        let frame = FrameData::Other(bytes.clone());
         assert_eq!(&bytes, frame.internal_data())
     }
 
@@ -632,5 +661,11 @@ mod tests {
             Err(StringParseError::MissingBOM) => assert!(true),
             _ => assert!(false)
         }
+    }
+
+    #[test]
+    fn frame_from_valid_bytes() {
+        let bytes = vec![0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0x00, 0x00, 0x01, 0xFF, 0xFE, 0x50, 0x00, 0x6F, 0x00, 0x6C, 0x00, 0x79, 0x00, 0x67, 0x00, 0x6F, 0x00, 0x6E, 0x00, 0x64, 0x00, 0x77, 0x00, 0x61, 0x00, 0x6E, 0x00, 0x61, 0x00, 0x6C, 0x00, 0x61, 0x00, 0x6E, 0x00, 0x64, 0x00, 0x00, 0x00];
+        Frame::read_from(&mut bytes.as_slice()).unwrap();
     }
 }
