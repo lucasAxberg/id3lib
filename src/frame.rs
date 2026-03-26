@@ -55,6 +55,14 @@ impl FrameHeader {
         let frame_flags: u16 = u16::from_be_bytes(self.flags);
         frame_flags & flag.0 == flag.0
     }
+
+    fn set_flag(&mut self, flag: FrameFlag) {
+        todo!();
+    }
+
+    fn unset_flag(&mut self, flag: FrameFlag) {
+        todo!();
+    }
 }
 
 pub enum FrameData {
@@ -260,5 +268,37 @@ mod tests {
         let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xE0];
         let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
         assert!(head.has_flag(FrameFlag::TAG_ALTER_PRESERVATION | FrameFlag::FILE_ALTER_PRESERVATION))
+    }
+
+    #[test]
+    fn frame_header_set_flag_no_change_if_flag_already_set() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xE0];
+        let mut head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        head.set_flag(FrameFlag::TAG_ALTER_PRESERVATION);
+        assert!(head.has_flag(FrameFlag(0xE0E0)));
+    }
+
+    #[test]
+    fn frame_header_set_flag_change_if_flag_not_set() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xC0];
+        let mut head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        head.set_flag(FrameFlag::GROUPING_IDENTITY);
+        assert!(head.has_flag(FrameFlag(0xE0E0)));
+    }
+
+    #[test]
+    fn frame_header_unset_flag_no_change_if_flag_not_set() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xC0];
+        let mut head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        head.unset_flag(FrameFlag::GROUPING_IDENTITY);
+        assert!(head.has_flag(FrameFlag(0xE0C0)));
+    }
+
+    #[test]
+    fn frame_header_unset_flag_change_if_flag_set() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xE0];
+        let mut head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        head.unset_flag(FrameFlag::GROUPING_IDENTITY);
+        assert!(head.has_flag(FrameFlag(0xE0C0)));
     }
 }
