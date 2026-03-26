@@ -178,7 +178,7 @@ impl Header {
     }
 
     fn has_flag(&self, flag: HeaderFlag) -> bool {
-        todo!();
+        self.flags & flag.0 == flag.0
     }
 }
 
@@ -370,7 +370,7 @@ mod tests {
     fn header_has_flag_true_for_under_defined_flag() {
         let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11100000, 0x00, 0x0B, 0x36, 0x47];
         let header = Header::read_from(&mut bytes.as_slice()).unwrap();
-        assert!(!header.has_flag(HeaderFlag(0b_1010_0000)));
+        assert!(header.has_flag(HeaderFlag(0b_1010_0000)));
     }
 
     #[test]
