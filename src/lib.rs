@@ -177,14 +177,23 @@ impl Header {
         bytes[6..10].iter().all(|x| x < &0x80)
     }
 
+    /// Checks if a function has one or more flags set
+    ///
+    /// Returns true if all flags given are set, else returns false
     fn has_flag(&self, flag: HeaderFlag) -> bool {
         self.flags & flag.0 == flag.0
     }
 
+    /// Sets one or more flags to active
+    ///
+    /// If an active flag is set, it remains active
     fn set_flag(&mut self, flag: HeaderFlag) {
         self.flags |= flag.0
     }
 
+    /// Sets one or more flags to inactive
+    ///
+    /// If an inactive flag is unset, it remains inactive
     fn unset_flag(&mut self, flag: HeaderFlag) {
         self.flags &= 0b_1111_1111 ^ flag.0
     }
