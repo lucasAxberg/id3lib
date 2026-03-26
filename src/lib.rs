@@ -318,7 +318,7 @@ impl Frame {
         let size = header.size();
 
         // Read the amount of bytes specified in the header
-        let mut buffer: Vec<u8> = Vec::new();
+        let mut buffer: Vec<u8> = Vec::with_capacity(size as usize);
         reader.take(size as u64).read_to_end(&mut buffer).map_err(|_| ID3Error::NotEnoughBytes)?;
 
         // Match the frame ID to the FrameData it should be stored in
