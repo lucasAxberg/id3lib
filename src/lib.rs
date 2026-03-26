@@ -125,6 +125,8 @@ impl From<SyncSafe> for Vec<u8> {
     }
 }
 
+struct HeaderFlag(u8);
+
 struct Header {
     identifier: [u8; 3],
     version: [u8; 2],
@@ -173,6 +175,10 @@ impl Header {
     fn experimental(&self) -> bool {
         // Check if bit 'c' in flag is set (%abc00000)
         self.flags & 0b_0010_0000 == 0b_0010_0000 
+    }
+
+    fn has_flag(&self, flag: HeaderFlag) -> bool {
+        todo!();
     }
 }
 
@@ -329,21 +335,42 @@ mod tests {
     fn header_unsynchronisation_flag_is_set() {
         let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_10000000, 0x00, 0x0B, 0x36, 0x47];
         let header = Header::read_from(&mut bytes.as_slice()).unwrap();
-        assert!(header.unsynchronisation());
+        assert!(header.has_flag(HeaderFlag(0b_1000_0000)));
     }
 
     #[test]
     fn header_extended_header_flag_is_set() {
         let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_01000000, 0x00, 0x0B, 0x36, 0x47];
         let header = Header::read_from(&mut bytes.as_slice()).unwrap();
-        assert!(header.extended_header());
+        assert!(header.has_flag(HeaderFlag(0b_0100_0000)));
     }
 
     #[test]
     fn header_experimental_flag_is_set() {
         let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_00100000, 0x00, 0x0B, 0x36, 0x47];
         let header = Header::read_from(&mut bytes.as_slice()).unwrap();
-        assert!(header.experimental());
+        assert!(header.has_flag(HeaderFlag(0b_0010_0000)));
+    }
+
+    #[test]
+    fn header_has_flag_true_for_identical_flag() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11100000, 0x00, 0x0B, 0x36, 0x47];
+        let header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        assert!(header.has_flag(HeaderFlag(0b_1110_0000)));
+    }
+
+    #[test]
+    fn header_has_flag_false_for_over_defined_flag() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_10100000, 0x00, 0x0B, 0x36, 0x47];
+        let header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        assert!(!header.has_flag(HeaderFlag(0b_1110_0000)));
+    }
+
+    #[test]
+    fn header_has_flag_true_for_under_defined_flag() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11100000, 0x00, 0x0B, 0x36, 0x47];
+        let header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        assert!(!header.has_flag(HeaderFlag(0b_1010_0000)));
     }
 
     #[test]
