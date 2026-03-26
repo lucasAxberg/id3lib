@@ -186,7 +186,7 @@ impl Header {
     }
 
     fn unset_flag(&mut self, flag: HeaderFlag) {
-        todo!();
+        self.flags &= 0b_1111_1111 ^ flag.0
     }
 }
 
