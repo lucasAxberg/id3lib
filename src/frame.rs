@@ -56,8 +56,14 @@ impl FrameHeader {
         frame_flags & flag.0 == flag.0
     }
 
+    /// A function for setting flags in a frame header
     fn set_flag(&mut self, flag: FrameFlag) {
-        todo!();
+        let mut frame_flags: u16 = u16::from_be_bytes(self.flags);
+        frame_flags |= flag.0;
+
+        let frame_flag_bytes = [(frame_flags >> 8) as u8, frame_flags as u8];;
+        self.flags = frame_flag_bytes;
+        
     }
 
     fn unset_flag(&mut self, flag: FrameFlag) {
