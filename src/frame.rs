@@ -29,8 +29,12 @@ impl FrameHeader {
         String::from_utf8(self.frame_id.to_vec()).unwrap()
     }
 
+    /// A function for checking if a frame header has a flag set
+    ///
+    /// Returns true if all the given flags are set, and false otherwise
     fn has_flag(&self, flag: FrameFlag) -> bool {
-        todo!();
+        let frame_flags: u16 = u16::from_be_bytes(self.flags);
+        frame_flags & flag.0 == flag.0
     }
 }
 
@@ -198,9 +202,23 @@ mod tests {
     }
 
     #[test]
-    fn frame_header_has_flag_from_frame_flag() {
+    fn frame_header_has_flag_true_from_identical_flag() {
         let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xE0];
         let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
         assert!(head.has_flag(FrameFlag(0xE0E0)))
+    }
+
+    #[test]
+    fn frame_header_has_flag_false_from_over_defined_flag() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xC0];
+        let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        assert!(!head.has_flag(FrameFlag(0xE0E0)))
+    }
+
+    #[test]
+    fn frame_header_has_flag_true_from_under_defined_flag() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xE0];
+        let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        assert!(head.has_flag(FrameFlag(0xE0C0)))
     }
 }
