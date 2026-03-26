@@ -180,6 +180,14 @@ impl Header {
     fn has_flag(&self, flag: HeaderFlag) -> bool {
         self.flags & flag.0 == flag.0
     }
+
+    fn set_flag(&mut self, flag: HeaderFlag) {
+        todo!();
+    }
+
+    fn unset_flag(&mut self, flag: HeaderFlag) {
+        todo!();
+    }
 }
 
 struct ExtendedHeader {
@@ -413,6 +421,102 @@ mod tests {
         let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11100000, 0x00, 0x0B, 0x36, 0x47];
         let header = Header::read_from(&mut bytes.as_slice()).unwrap();
         assert!(header.has_flag(HeaderFlag::UNSYNCHRONISATION | HeaderFlag::EXTENDED_HEADER));
+    }
+
+    #[test]
+    fn header_set_unsynchronisation_no_change_if_unsynchronisation_is_set() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11100000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.set_flag(HeaderFlag::UNSYNCHRONISATION);
+        assert!(header.has_flag(HeaderFlag::UNSYNCHRONISATION | HeaderFlag::EXTENDED_HEADER | HeaderFlag::EXPERIMENTAL_INDICATOR));
+    }
+
+    #[test]
+    fn header_set_extended_no_change_if_extended_is_set() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11100000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.set_flag(HeaderFlag::EXTENDED_HEADER);
+        assert!(header.has_flag(HeaderFlag::UNSYNCHRONISATION | HeaderFlag::EXTENDED_HEADER | HeaderFlag::EXPERIMENTAL_INDICATOR));
+    }
+
+    #[test]
+    fn header_set_experimental_no_change_if_experimental_is_set() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11100000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.set_flag(HeaderFlag::EXPERIMENTAL_INDICATOR);
+        assert!(header.has_flag(HeaderFlag::UNSYNCHRONISATION | HeaderFlag::EXTENDED_HEADER | HeaderFlag::EXPERIMENTAL_INDICATOR));
+    }
+
+    #[test]
+    fn header_set_unsynchronisation_change_if_unsynchronisation_is_not_set() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_01100000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.set_flag(HeaderFlag::UNSYNCHRONISATION);
+        assert!(header.has_flag(HeaderFlag::UNSYNCHRONISATION | HeaderFlag::EXTENDED_HEADER | HeaderFlag::EXPERIMENTAL_INDICATOR));
+    }
+
+    #[test]
+    fn header_set_extended_change_if_extended_is_not_set() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_10100000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.set_flag(HeaderFlag::EXTENDED_HEADER);
+        assert!(header.has_flag(HeaderFlag::UNSYNCHRONISATION | HeaderFlag::EXTENDED_HEADER | HeaderFlag::EXPERIMENTAL_INDICATOR));
+    }
+
+    #[test]
+    fn header_set_experimental_change_if_experimental_is_not_set() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11000000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.set_flag(HeaderFlag::EXPERIMENTAL_INDICATOR);
+        assert!(header.has_flag(HeaderFlag::UNSYNCHRONISATION | HeaderFlag::EXTENDED_HEADER | HeaderFlag::EXPERIMENTAL_INDICATOR));
+    }
+
+    #[test]
+    fn header_unset_unsynchronisation_no_change_if_unsynchronisation_is_unset() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_01100000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.unset_flag(HeaderFlag::UNSYNCHRONISATION);
+        assert!(!header.has_flag(HeaderFlag::UNSYNCHRONISATION));
+    }
+
+    #[test]
+    fn header_unset_extended_no_change_if_extended_is_unset() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_10100000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.unset_flag(HeaderFlag::EXTENDED_HEADER);
+        assert!(!header.has_flag(HeaderFlag::EXTENDED_HEADER));
+    }
+
+    #[test]
+    fn header_unset_experimental_no_change_if_experimental_is_unset() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11000000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.unset_flag(HeaderFlag::EXPERIMENTAL_INDICATOR);
+        assert!(!header.has_flag(HeaderFlag::EXPERIMENTAL_INDICATOR));
+    }
+
+    #[test]
+    fn header_unset_unsynchronisation_change_if_unsynchronisation_is_not_unset() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11100000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.unset_flag(HeaderFlag::UNSYNCHRONISATION);
+        assert!(!header.has_flag(HeaderFlag::UNSYNCHRONISATION));
+    }
+
+    #[test]
+    fn header_unset_extended_change_if_extended_is_not_unset() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11100000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.unset_flag(HeaderFlag::EXTENDED_HEADER);
+        assert!(!header.has_flag(HeaderFlag::EXTENDED_HEADER));
+    }
+
+    #[test]
+    fn header_unset_experimental_change_if_experimental_is_not_unset() {
+        let bytes: [u8; 10] = [0x49, 0x44, 0x33, 0x03, 0x00, 0b_11100000, 0x00, 0x0B, 0x36, 0x47];
+        let mut header = Header::read_from(&mut bytes.as_slice()).unwrap();
+        header.unset_flag(HeaderFlag::EXPERIMENTAL_INDICATOR);
+        assert!(!header.has_flag(HeaderFlag::EXPERIMENTAL_INDICATOR));
     }
 
     #[test]
