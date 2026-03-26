@@ -1,7 +1,26 @@
 use super::error::*;
 use std::io::Read;
 
+/// Struct representning valid flag options for the ID3 frame header
 pub struct FrameFlag(u16);
+
+impl FrameFlag {
+    pub const TAG_ALTER_PRESERVATION: Self = Self(0b_10000000_00000000);
+    pub const FILE_ALTER_PRESERVATION: Self = Self(0b_01000000_00000000);
+    pub const READ_ONLY: Self = Self(0b_00100000_00000000);
+    pub const COMPRESSION: Self = Self(0b_00000000_10000000);
+    pub const ENCRYPITON: Self = Self(0b_00000000_01000000);
+    pub const GROUPING_IDENTITY: Self = Self(0b_00000000_00100000);
+}
+
+impl std::ops::BitOr for FrameFlag {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let combined: u16 = self.0 | rhs.0;
+        Self(combined)
+    }
+}
 
 pub struct FrameHeader {
     frame_id: [u8; 4],
@@ -220,5 +239,26 @@ mod tests {
         let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xE0];
         let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
         assert!(head.has_flag(FrameFlag(0xE0C0)))
+    }
+
+    #[test]
+    fn frame_header_has_flag_true_from_identical_flag_from_consts() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xE0];
+        let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        assert!(head.has_flag(FrameFlag::TAG_ALTER_PRESERVATION | FrameFlag::FILE_ALTER_PRESERVATION | FrameFlag::READ_ONLY | FrameFlag::COMPRESSION | FrameFlag::ENCRYPITON | FrameFlag::GROUPING_IDENTITY))
+    }
+
+    #[test]
+    fn frame_header_has_flag_false_from_over_defined_flag_from_consts() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xC0];
+        let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        assert!(!head.has_flag(FrameFlag::TAG_ALTER_PRESERVATION | FrameFlag::FILE_ALTER_PRESERVATION | FrameFlag::READ_ONLY | FrameFlag::COMPRESSION | FrameFlag::ENCRYPITON | FrameFlag::GROUPING_IDENTITY))
+    }
+
+    #[test]
+    fn frame_header_has_flag_true_from_under_defined_flag_from_consts() {
+        let bytes: [u8; 10] = [0x54, 0x49, 0x54, 0x32, 0x00, 0x00, 0x00, 0x25, 0xE0, 0xE0];
+        let head = FrameHeader::read_from(&mut bytes.as_slice()).unwrap();
+        assert!(head.has_flag(FrameFlag::TAG_ALTER_PRESERVATION | FrameFlag::FILE_ALTER_PRESERVATION))
     }
 }
