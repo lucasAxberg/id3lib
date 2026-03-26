@@ -182,7 +182,7 @@ impl Header {
     }
 
     fn set_flag(&mut self, flag: HeaderFlag) {
-        todo!();
+        self.flags |= flag.0
     }
 
     fn unset_flag(&mut self, flag: HeaderFlag) {
